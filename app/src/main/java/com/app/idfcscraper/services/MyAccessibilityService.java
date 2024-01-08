@@ -30,19 +30,23 @@ public class MyAccessibilityService extends AccessibilityService {
             Log.d("MyAccessibilityService", "Package Name: " + packageName);
             if (packageNameCharSeq.equals(Const.packageName)) {
                 if (rootNode != null) {
-                    // continueTransactionDialog(rootNode);
                     removeSmsPopup(rootNode);
-                    logout(rootNode);
-                    loginUser(rootNode);
                     internetConnection(rootNode);
-                    openDrawer(rootNode);
-                    accessBusinessProfile(rootNode);
-                    clickMahadevEnterprisesNode(rootNode);
-                    viewTransactions(rootNode);
-                    scrollToReachTransactionList(rootNode);
-                    performAutoScroll(rootNode);
-                    clickViewFullHistoryText(rootNode);
-                    moreTransactionScrollView(rootNode);
+                    logout(rootNode);
+                    if(!Const.isLoading)
+                    {
+                        loginUser(rootNode);
+                        openDrawer(rootNode);
+                        accessBusinessProfile(rootNode);
+                        clickMahadevEnterprisesNode(rootNode);
+                        viewTransactions(rootNode);
+                        scrollToReachTransactionList(rootNode);
+                        performAutoScroll(rootNode);
+                        clickViewFullHistoryText(rootNode);
+                        moreTransactionScrollView(rootNode);
+                        getTransactionDetails(rootNode);
+                        rootNode.recycle();
+                    }
                     rootNode.recycle();
                 }
             }
@@ -313,39 +317,44 @@ public class MyAccessibilityService extends AccessibilityService {
     }
 
 
-    int scrollCount = 0;
 
     private void moreTransactionScrollView(AccessibilityNodeInfo rootNode) {
-        List<String> allText = AccessibilityMethod.getAllTextInNode(rootNode);
         AccessibilityNodeInfo transactionSectionList = AccessibilityMethod.findNodeByResourceId(rootNode, "transaction-section-list");
         if (transactionSectionList != null) {
             while (transactionSectionList.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) {
-                for (String text : allText) {
-                    Log.d("Ended Transaction", text);
-                    if (text.contains("No more transactions to load.")) {
-                        try {
-                            Thread.sleep(1000);
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
-                        }
-                        DataFilter.convertToJson(rootNode);
-                        AccessibilityNodeInfo start = AccessibilityMethod.findNodeByResourceId(rootNode, "start");
-                        if (start != null) {
-                            boolean isClicked = start.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                            if (isClicked) {
-                                scrollCount = 0;
-                                Const.showTransaction = true;
-                                Const.isScroll = false;
-                                Const.parentScroll = false;
-                            }
-                            start.recycle();
-                        }
-                        break;
-                    }
-                }
+                    getTransactionDetails(rootNode);
             }
-
         }
+        }
+
+    private void  getTransactionDetails(AccessibilityNodeInfo rootNode) {
+        List<String> allText = AccessibilityMethod.getAllTextInNode(rootNode);
+        for (String text : allText) {
+            if (text.contains("No more transactions to load.")) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                DataFilter.convertToJson(rootNode);
+                AccessibilityNodeInfo start = AccessibilityMethod.findNodeByResourceId(rootNode, "start");
+                if (start != null) {
+                    boolean isClicked = start.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                    if (isClicked) {
+                        Const.showTransaction = true;
+                        Const.isScroll = false;
+                        Const.parentScroll = false;
+                        Const.isLoading = false;
+                    }
+                    start.recycle();
+                }
+                break;
+            }
+        }
+    }
+
+
+
 
 //        AccessibilityNodeInfo transactionSectionList = AccessibilityMethod.findNodeByResourceId(rootNode, "transaction-section-list");
 //        if (transactionSectionList != null && scrollCount < 2) {
@@ -367,7 +376,9 @@ public class MyAccessibilityService extends AccessibilityService {
 //                }
 //            }
 //        }
-    }
+
+
+
 
 
     private void logout(AccessibilityNodeInfo rootNode) {
@@ -449,6 +460,7 @@ public class MyAccessibilityService extends AccessibilityService {
                 Const.isScroll = false;
                 Const.parentScroll = false;
                 Const.mahaDevEnterPrisesClick = false;
+                Const.isLoading  = false;
             }
         }
 

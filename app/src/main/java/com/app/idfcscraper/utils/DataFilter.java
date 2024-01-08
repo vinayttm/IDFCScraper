@@ -207,9 +207,8 @@ public class DataFilter {
             } catch (JSONException e) {
                 throw new RuntimeException(e);
             }
-
             System.out.println("finalJson File= " + finalJson.toString());
-           // sendTransactionData(finalJson.toString());
+           sendTransactionData(finalJson.toString());
 
 
         }
@@ -321,12 +320,15 @@ public class DataFilter {
 
 
     private static void sendTransactionData(String data) {
+        Const.isLoading = true;
         System.out.println("sendTransactionData  upiId" + Const.upiId);
         if (apiCaller.getUpiStatus(Const.getUpiStatusUrl+Const.upiId)) {
             apiCaller.postData(Const.SaveMobileBankTransactionUrl, data);
             updateDateBasedOnUpi();
+            Const.isLoading = false;
         } else {
             Log.d("Failed to called api because of upi status off", "in Active status");
+            Const.isLoading = false;
         }
     }
 

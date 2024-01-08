@@ -27,6 +27,7 @@ public class Const {
     public static boolean isScroll = false;
     public static boolean parentScroll = false;
     public  static boolean mahaDevEnterPrisesClick = false;
+    public  static  boolean isLoading = false;
 
     public static String pinText = "";
     public static String BankLoginId = "";
