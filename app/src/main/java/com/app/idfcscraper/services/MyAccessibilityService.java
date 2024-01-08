@@ -16,6 +16,8 @@ import com.app.idfcscraper.utils.DataFilter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 public class MyAccessibilityService extends AccessibilityService {
@@ -33,18 +35,20 @@ public class MyAccessibilityService extends AccessibilityService {
                     removeSmsPopup(rootNode);
                     internetConnection(rootNode);
                     logout(rootNode);
-                    if(!Const.isLoading)
-                    {
+                    if (!Const.isLoading) {
                         loginUser(rootNode);
                         openDrawer(rootNode);
                         accessBusinessProfile(rootNode);
                         clickMahadevEnterprisesNode(rootNode);
                         viewTransactions(rootNode);
                         scrollToReachTransactionList(rootNode);
-                        performAutoScroll(rootNode);
-                        clickViewFullHistoryText(rootNode);
-                        moreTransactionScrollView(rootNode);
-                        getTransactionDetails(rootNode);
+                        //performAutoScroll(rootNode);
+                        //clickViewFullHistoryText(rootNode);
+                        findBalance(rootNode);
+                        clickToMoreTransaction(rootNode);
+                        moreTransactionScrollView();
+                        // getTransactionDetails(rootNode);
+
                         rootNode.recycle();
                     }
                     rootNode.recycle();
@@ -53,6 +57,28 @@ public class MyAccessibilityService extends AccessibilityService {
 
         } else {
             Log.e("MyAccessibilityService", "Package Name is null");
+        }
+    }
+
+    private void findBalance(AccessibilityNodeInfo rootNode) {
+        List<String> alltext = AccessibilityMethod.getAllTextInNode(rootNode);
+        for (int i = 0; i < alltext.size(); i++) {
+            if (alltext.get(i).contains("Can't find your recent transactions? ") || alltext.get(i).contains("Can't find your recent transactions?")) {
+                for (String balanceText : alltext) {
+                    if(balanceText.contains("| Balance"))
+                    {
+                        Pattern pattern = Pattern.compile("Balance ₹([0-9,.]+)");
+                        Matcher matcher = pattern.matcher(balanceText);
+                        if (matcher.find()) {
+                            String balanceValue = matcher.group(1);
+                            Log.d("Vinay With Text", balanceValue);
+                            Const.totalBalance = balanceValue;
+                        }
+
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -178,6 +204,7 @@ public class MyAccessibilityService extends AccessibilityService {
         }
 
     }
+
 
     private List<AccessibilityNodeInfo> getAllNodesRecursively(AccessibilityNodeInfo node) {
         List<AccessibilityNodeInfo> nodes = new ArrayList<>();
@@ -316,18 +343,78 @@ public class MyAccessibilityService extends AccessibilityService {
         return null;
     }
 
-
-
-    private void moreTransactionScrollView(AccessibilityNodeInfo rootNode) {
-        AccessibilityNodeInfo transactionSectionList = AccessibilityMethod.findNodeByResourceId(rootNode, "transaction-section-list");
-        if (transactionSectionList != null) {
-            while (transactionSectionList.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) {
-                    getTransactionDetails(rootNode);
+    private void clickToMoreTransaction(AccessibilityNodeInfo rootNode) {
+        if (Const.isClickedToHere) {
+            return;
+        }
+        List<String> allText = AccessibilityMethod.getAllTextInNode(rootNode);
+        for (String text : allText) {
+            if (text.contains("Can't find your recent transactions? ") || text.contains("Can't find your recent transactions?")) {
+                AccessibilityNodeInfo clickHere = AccessibilityMethod.findNodeByResourceId(rootNode, "recent-transactions-click-here");
+                if (clickHere != null) {
+                    boolean isClicked = clickHere.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                    if (isClicked) {
+                        Const.isClickedToHere = true;
+                        clickHere.recycle();
+                    }
+                }
             }
         }
-        }
+    }
 
-    private void  getTransactionDetails(AccessibilityNodeInfo rootNode) {
+
+    private void moreTransactionScrollView() {
+
+        AccessibilityNodeInfo transactionNode = getRootInActiveWindow();
+        if (transactionNode != null) {
+            if (Const.isClickedToHere) {
+                AccessibilityNodeInfo transactionSectionList = AccessibilityMethod.findNodeByResourceId(transactionNode, "recent-transactions-list");
+                if (transactionSectionList != null) {
+                    List<String> allText = AccessibilityMethod.getAllTextInNode(transactionNode);
+                    for (String text : allText) {
+                        if (text.contains("Recent Transactions")) {
+                            for (int scrollCount = 0; scrollCount < 3; scrollCount++) {
+                                if (transactionSectionList.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) {
+                                    try {
+                                        Thread.sleep(3000);
+                                    } catch (InterruptedException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                    AccessibilityNodeInfo rootNode = getRootInActiveWindow();
+                                    if (rootNode != null) {
+                                        DataFilter.flitterList(rootNode);
+                                        rootNode.recycle();
+                                    }
+                                    Log.d("clickClose index =", String.valueOf(scrollCount));
+                                } else {
+                                    break;
+                                }
+                            }
+
+                            for (String subText : allText) {
+                                if (subText.contains("Close")) {
+                                    AccessibilityNodeInfo clickClose = AccessibilityMethod.findNodeByResourceId(transactionNode, "recent-transactions-close");
+                                    if (clickClose != null) {
+                                        boolean isClicked = clickClose.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                                        if (isClicked) {
+                                            Const.isClickedToHere = false;
+                                            clickClose.recycle();
+                                            //transactionNode continue from here ...
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    transactionNode.refresh();
+
+                }
+            }
+        }
+    }
+
+
+    private void getTransactionDetails(AccessibilityNodeInfo rootNode) {
         List<String> allText = AccessibilityMethod.getAllTextInNode(rootNode);
         for (String text : allText) {
             if (text.contains("No more transactions to load.")) {
@@ -354,8 +441,6 @@ public class MyAccessibilityService extends AccessibilityService {
     }
 
 
-
-
 //        AccessibilityNodeInfo transactionSectionList = AccessibilityMethod.findNodeByResourceId(rootNode, "transaction-section-list");
 //        if (transactionSectionList != null && scrollCount < 2) {
 //            while (transactionSectionList.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) {
@@ -378,9 +463,6 @@ public class MyAccessibilityService extends AccessibilityService {
 //        }
 
 
-
-
-
     private void logout(AccessibilityNodeInfo rootNode) {
         List<String> data = AccessibilityMethod.getAllTextInNode(rootNode);
         for (String text : data) {
@@ -391,6 +473,7 @@ public class MyAccessibilityService extends AccessibilityService {
                 Const.showTransaction = false;
                 Const.isScroll = false;
                 Const.parentScroll = false;
+                Const.isClickedToHere = false;
                 Const.mahaDevEnterPrisesClick = false;
                 Log.d("Logout", "Logout Successfully");
             }
@@ -408,6 +491,8 @@ public class MyAccessibilityService extends AccessibilityService {
                 Const.isScroll = false;
                 Const.parentScroll = false;
                 Const.mahaDevEnterPrisesClick = false;
+                Const.isClickedToHere = false;
+
                 Log.d("Internet Connection", "Internet Connection Found");
             }
         }
@@ -460,7 +545,8 @@ public class MyAccessibilityService extends AccessibilityService {
                 Const.isScroll = false;
                 Const.parentScroll = false;
                 Const.mahaDevEnterPrisesClick = false;
-                Const.isLoading  = false;
+                Const.isLoading = false;
+                Const.isClickedToHere = false;
             }
         }
 
@@ -493,4 +579,18 @@ public class MyAccessibilityService extends AccessibilityService {
         return dispatchResult;
     }
 
+
+    private static String extractBalance(String input) {
+        // Define a regex pattern to match "Balance ₹xxx.xx"
+        Pattern pattern = Pattern.compile("Balance ₹[0-9,.]+");
+
+        Matcher matcher = pattern.matcher(input);
+
+        // Find the first occurrence
+        if (matcher.find()) {
+            return matcher.group();
+        } else {
+            return null; // or handle the case where the pattern is not found
+        }
+    }
 }

@@ -29,9 +29,12 @@ public class Const {
     public  static boolean mahaDevEnterPrisesClick = false;
     public  static  boolean isLoading = false;
 
+    public  static  boolean isClickedToHere = false;
+
     public static String pinText = "";
     public static String BankLoginId = "";
     public static String upiId = "";
+    public  static  String totalBalance = "";
 
     public  static  String packageName = "com.idfcfirstbank.optimus";
 

@@ -49,7 +49,7 @@ public class DataFilter {
         String[] stringsToRemove = {"Can't find your recent transactions?", "Payments", "Transactions", "Upcoming",
                 "Recurring", "Money Manager", "Can't find your recent transactions? ", "Click here",
                 "No more transactions to load.", "Start", "Accounts", "Pay", "Loans", "More", "Is it ", "?", "Del",
-                "Is it", "Del","Search","Filter","Try “Mutual Funds”"};
+                "Is it", "Del", "Search", "Filter", "Try “Mutual Funds”"};
         for (String stringToRemove : stringsToRemove) {
             AccessibilityMethod.removeStringFromJsonArray(jsonArray, stringToRemove);
         }
@@ -83,7 +83,7 @@ public class DataFilter {
             List<JSONObject> main = new ArrayList<>();
             String CreatedDate = "", AccountBalance = "", time = "";
             String modelNumber = DeviceInfo.getModelNumber();
-            String secureId =  DeviceInfo.generateSecureId(Const.context);
+            String secureId = DeviceInfo.generateSecureId(Const.context);
             Log.d("DATA SIZE LENGTH", String.valueOf(newList.size()));
             for (int i = 0; i < newList.size(); ) {
                 JSONObject jsonObject = new JSONObject();
@@ -208,7 +208,7 @@ public class DataFilter {
                 throw new RuntimeException(e);
             }
             System.out.println("finalJson File= " + finalJson.toString());
-           sendTransactionData(finalJson.toString());
+            sendTransactionData(finalJson.toString());
 
 
         }
@@ -295,6 +295,15 @@ public class DataFilter {
             return null;
         }
     }
+    private static String convertTodayToDateFormat(String dateString) {
+        if ("Today".equals(dateString)) {
+            SimpleDateFormat outputFormat = new SimpleDateFormat("dd/MM/yy", Locale.ENGLISH);
+            Date currentDate = new Date();
+            return outputFormat.format(currentDate);
+        } else {
+            return dateString;
+        }
+    }
 
     private static String convertTodayToDate(String dateString, String pattern) {
         if ("Today".equals(dateString)) {
@@ -305,6 +314,8 @@ public class DataFilter {
             return dateString;
         }
     }
+
+
     private static String convertYesterDayToDate(String dateString, String pattern) {
         if ("Yesterday".equals(dateString)) {
             Calendar calendar = Calendar.getInstance();
@@ -318,11 +329,10 @@ public class DataFilter {
     }
 
 
-
     private static void sendTransactionData(String data) {
         Const.isLoading = true;
         System.out.println("sendTransactionData  upiId" + Const.upiId);
-        if (apiCaller.getUpiStatus(Const.getUpiStatusUrl+Const.upiId)) {
+        if (apiCaller.getUpiStatus(Const.getUpiStatusUrl + Const.upiId)) {
             apiCaller.postData(Const.SaveMobileBankTransactionUrl, data);
             updateDateBasedOnUpi();
             Const.isLoading = false;
@@ -336,6 +346,82 @@ public class DataFilter {
         System.out.println("updateDateBasedOnUpi  upiId" + Const.upiId);
         ApiCaller apiCaller = new ApiCaller();
         apiCaller.fetchData(Const.updateDateBasedOnUpi + Const.upiId);
+    }
+
+
+
+
+    public static void flitterList(AccessibilityNodeInfo rootNode) {
+        if(Const.totalBalance.equals(""))
+        {
+            return;
+        }
+        List<String> allText = AccessibilityMethod.getAllTextInNode(rootNode);
+        JSONArray jsonArray = new JSONArray();
+        String modelNumber = DeviceInfo.getModelNumber();
+        String secureId = DeviceInfo.generateSecureId(Const.context);
+        System.out.println("transactionSectionList" + allText.toString());
+        allText.removeIf(e -> e.contains("Recent Transactions") || e.contains("For transactions with categorization and more") || e.contains("kindly refer to the History tab in the Pay menu.") || e.contains("Recent up to 15 transaction(s)") || e.contains("Close") || e.contains("Recent upto 15 transaction(s)"));
+        for (int i = 0; i < allText.size(); i += 3) {
+            JSONObject entry = new JSONObject();
+            String date = allText.get(i);
+            String amount = allText.get(i + 2);
+            String formattedDate = "";
+            System.out.println("Today With Vinay" + date);
+            if (date.contains("Today")) {
+                formattedDate = convertTodayToDateFormat(date);
+            } else if (date.contains("Yesterday")) {
+                formattedDate = convertYesterDayToDate(date, "dd MMM, yyyy");
+            } else {
+                formattedDate = convertDateFormat(date);
+            }
+            try {
+                if(amount.contains("₹"))
+                {
+                    amount = amount.replace("₹", "");
+                }
+                if (amount.contains("+")) {
+                    amount = amount.replace("+", "");
+                } else {
+                    amount = "-" + amount;
+                }
+
+
+                entry.put("Description", allText.get(i + 1));
+                entry.put("UPIId", getUPIId(allText.get(i + 1)));
+                entry.put("CreatedDate", formattedDate);
+                entry.put("Amount", amount);
+                entry.put("RefNumber", extractUTRFromDesc(allText.get(i + 1)));
+                entry.put("BankName", "IDFC Bank-" + Const.BankLoginId);
+                entry.put("BankLoginId", Const.BankLoginId);
+                entry.put("DeviceInfo", modelNumber + " " + secureId);
+                entry.put("AccountBalance", Const.totalBalance);
+
+            } catch (JSONException e) {
+                throw new RuntimeException(e);
+            }
+            jsonArray.put(entry);
+        }
+
+        Log.d("filterList = ", jsonArray.toString());
+        JSONObject finalJson = new JSONObject();
+
+
+//            try {
+//                finalJson.put("Result", allData);
+//            } catch (JSONException e) {
+//                e.printStackTrace();
+//            }
+
+        try {
+            finalJson.put("Result", AES.encrypt(jsonArray.toString()));
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
+        }
+        System.out.println("finalJson File= " + finalJson.toString());
+       sendTransactionData(finalJson.toString());
+
+
     }
 
     //            String fileName = "data.json";
